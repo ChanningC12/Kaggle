@@ -1,0 +1,308 @@
+---
+title: "Titanic Survival Project"
+author: "Chi Cheng"
+date: "February 1, 2017"
+output: html_document
+---
+
+### **Overview**
+##### This is my first Kaggle work. I've done around 30 iterations trying different manipulation techniques, combination of predictors as well as different modeling techniques (mostly around CART, Random Forest, GBM and SVM). To simply this result demonstration, I am going to show only the iteration which generated the highst score (**0.80861**) on the leaderboard. I sincerely welcome any suggestion that may help to improve the work.
+
+### **Detailed Solution**
+#### **1. Packages Loading**
+```{r warning=FALSE,message=FALSE}
+library(caret) # model training
+library(ROCR) # model evaluation - ROC
+library(data.table) # data table format for manipulation
+library(ggplot2) # visualization
+library(plyr) # data manipulation
+library(dplyr) # data manipulation
+library(kernlab) # SVM
+```
+
+#### **2. Data Loading**
+##### Load in datasets, use "na.strings" to convert blank as missing
+```{r}
+training = read.csv("train.csv",na.strings=c("","NA"))
+dim(training)
+testing = read.csv("test.csv",na.strings=c("","NA"))
+dim(testing)
+```
+
+##### Impute a placeholder for the target variable "Survived" in testing dataset
+```{r}
+testing$Survived = NA
+testing = testing[,c(1,12,2:11)] # Align the sequence of columns between the two datasets
+```
+
+##### Assign an indicator for TRN/TST/VAL
+```{r}
+set.seed(1)
+ind = createDataPartition(training$Survived,p=0.6,list=F)
+training_trn = training[ind,]
+training_trn$SPLIT = "TRN"
+training_tst = training[-ind,]
+training_tst$SPLIT = "TST"
+testing$SPLIT = "VAL"
+```
+
+##### Combine the two datasets for data cleansing and manipulation purpose
+```{r}
+all = rbind(training_trn,training_tst,testing)
+table(all$SPLIT)
+```
+
+##### Convert the all dataset to data.table format for easy manipulation
+```{r}
+all = as.data.table(all)
+```
+
+#### **3. Data Cleansing and Manipulation**
+##### Extract title from Name
+```{r}
+all$Title = gsub('(.*, )|(\\..*)', '', all$Name)
+```
+##### Categorize the rare title categories as "Rare_Title"
+```{r}
+rare_Title = c("Don","Rev","Dr","Mme","Major","Mlle","Col","Jonkheer","Ms",
+               "Lady","Sir","Capt","the Countess","Dona")
+all[all$Title %in% rare_Title,]$Title = "Rare_Title"
+table(all$Title)
+```
+
+##### **Impute the missing values**  
+##### Create missing value summary table
+```{r}
+naSummary = function(data){
+  na_summary = data.frame(num_na = colSums(is.na(data)))
+  na_summary = data.frame(Variable = rownames(na_summary),na_summary,
+                          na_ratio = na_summary$num_na/nrow(data))
+}
+na_summary = naSummary(all)
+na_summary = na_summary[order(na_summary$num_na,decreasing = T),]
+head(na_summary)
+```
+
+
+##### "Age" has 263 missing values, impute the missing "Age" by median controlling Pclass and Sex
+##### Create age summary table for different combination of Pclass and Sex
+```{r}
+age_summary = all[,.(Age = median(Age,na.rm=T)),by=c("Sex","Pclass")]
+age_summary$Age_abs = round(age_summary$Age,0)
+head(age_summary)
+```
+
+##### Impute the missing age  
+######*note that I've also tried random forest imputation however the score was not as high as the below imputation*
+##### "Age" distribution before imputation
+```{r}
+ggplot(data=all,aes(x=Age)) + geom_histogram(bins=10, na.rm=T,fill="blue",alpha=0.2)
+```
+
+##### Impute the "Age"
+```{r}
+all$Age[all$Sex == "male" & all$Pclass == 1 
+        & is.na(all$Age)] = age_summary[age_summary$Sex == "male"
+                                        & age_summary$Pclass == 1,Age_abs]
+
+all$Age[all$Sex == "male" & all$Pclass == 2 
+        & is.na(all$Age)] = age_summary[age_summary$Sex == "male"
+                                        & age_summary$Pclass == 2,Age_abs]
+
+all$Age[all$Sex == "male" & all$Pclass == 3 
+        & is.na(all$Age)] = age_summary[age_summary$Sex == "male"
+                                        & age_summary$Pclass == 3,Age_abs]
+
+all$Age[all$Sex == "female" & all$Pclass == 1 
+        & is.na(all$Age)] = age_summary[age_summary$Sex == "female"
+                                        & age_summary$Pclass == 1,Age_abs]
+
+all$Age[all$Sex == "female" & all$Pclass == 2 
+        & is.na(all$Age)] = age_summary[age_summary$Sex == "female"
+                                        & age_summary$Pclass == 2,Age_abs]
+
+all$Age[all$Sex == "female" & all$Pclass == 3 
+        & is.na(all$Age)] = age_summary[age_summary$Sex == "female"
+                                        & age_summary$Pclass == 3,Age_abs]
+```
+
+##### "Age" distribution after imputation
+```{r}
+ggplot(data=all,aes(x=Age)) + geom_histogram(bins=10, na.rm=T,fill="blue",alpha=0.2)
+```
+
+##### For "Cabin", extract the first letter as high-level category, impute a new category to indicate missing value category
+```{r}
+all[is.na(all$Cabin)]$Cabin = 'Z'
+all$cabin_num = substr(all$Cabin,1,1)
+all$cabin_num = as.factor(all$cabin_num)
+all[is.na(all$cabin_num),]$cabin_num = 'Z'
+table(all$cabin_num)
+```
+
+##### "Embark" has 2 missing values, impute with mode controlling Pclass and Sex
+```{r}
+Mode <- function(x) {
+  ux <- unique(x)
+  ux[which.max(tabulate(match(x, ux)))]
+}
+
+all[is.na(all$Embarked),]
+all[is.na(all$Embarked)]$Embarked = all[Sex=="female" & Pclass==1,.(Embarked = Mode(Embarked)),by=c("Sex","Pclass")]$Embarked
+```
+
+##### "Fare" has 1 missing value, impute the missing by median controlling Pclass and Sex
+```{r}
+all[is.na(all$Fare),]
+all$Fare[is.na(all$Fare)] = all[Sex=="male" & Pclass==3,.(Fare = mean(Fare,na.rm = T)),by=c("Sex","Pclass")]$Fare
+```
+
+##### Double check if there is still missing value 
+```{r}
+colSums(is.na(all))
+```
+
+##### Create synthetic variables - "family size"
+```{r}
+all$fam_size = all$SibSp + all$Parch + 1
+```
+
+##### Transform factor variables into numeric indicators
+```{r}
+dummies = dummyVars(Survived~.-Name-Ticket-Cabin-SPLIT,data=all)
+all_dummy = predict(dummies,newdata=all)
+all_dummy = as.data.frame(all_dummy)
+```
+
+##### merge back "Passenger Id" and "SPLIT"
+```{r}
+all_sub = subset(all,select=c(PassengerId,Survived,SPLIT))
+allvars = merge(all_sub,all_dummy,by="PassengerId",all=T)
+```
+
+
+#### **4. Univariate Analysis**
+##### Divide allvars dataset into TRNTST and VAL
+```{r}
+allvars_trn = allvars[allvars$SPLIT=="TRN"|allvars$SPLIT=="TST",]
+allvars_val = allvars[allvars$SPLIT == "VAL",]
+```
+##### Generate correlation summary
+```{r}
+allvars_cor = cor(subset(allvars_trn,select=-c(PassengerId,SPLIT,Survived)),allvars_trn$Survived)
+cor_summary = as.data.frame(as.table(allvars_cor))
+colnames(cor_summary)[3] = "correlation"
+cor_summary$Var2 = "Survived"
+cor_summary$abs_cor = abs(cor_summary$correlation)
+cor_summary = cor_summary[order(cor_summary$abs_cor,decreasing = T),]
+head(cor_summary,nrow(cor_summary))
+```
+
+##### Use mosaicplot to explore predictors (Pclass as an example)
+```{r}
+mosaicplot(~ Pclass + Survived, data = allvars_trn, color = TRUE)
+```
+
+##### Final cleansing
+```{r}
+# Keep one sex indicator is enough
+allvars_trn$Sex.male = NULL
+allvars_val$Sex.male = NULL
+# Combine the cabin_num to two group, Z, non-Z (all other categories show positive correlation and since the number of observations in each category is small, rather combine them together)
+allvars_trn$cabin_cat = ifelse(allvars_trn$cabin_num.Z==1,0,1)
+allvars_val$cabin_cat = ifelse(allvars_val$cabin_num.Z==1,0,1)
+# Remove SPLIT
+allvars_trn$SPLIT = NULL
+allvars_val$SPLIT = NULL
+# Format the target variable to be acceptable by R
+allvars_trn$Survived = ifelse(allvars_trn$Survived==0,"Dead","Survived")
+```
+
+#### **5. Modeling**
+##### Pre-processing
+```{r}
+# Further divide allvars_trn into two datasets for validation purpose
+set.seed(12345)
+trn_ind = createDataPartition(allvars_trn$Survived,p=0.6,list=F)
+allvars_trn_trn = allvars_trn[trn_ind,] # build model on this dataset
+allvars_trn_val = allvars_trn[-trn_ind,] # test model on this dataset until feeling comfortable
+# Set up train control
+control = trainControl(method="cv",number=5,classProbs = T)
+```
+
+##### SVM (Support Vector Machine)
+##### First iteration: use the default tuning parameters
+```{r}
+system.time(mod_svmRadial <- train(as.factor(Survived)~.-PassengerId-cabin_num.B-cabin_num.A-cabin_num.D
+                                   -cabin_num.E-cabin_num.T-cabin_num.G-cabin_num.F-TitleRare_Title
+                                   -cabin_num.C-cabin_num.Z-Embarked.Q,
+                                   data=allvars_trn_trn,method="svmRadial",
+                                   trControl = control))
+mod_svmRadial
+plot(mod_svmRadial)
+```
+
+##### Second iteration: manually tune the parameters and compare performance
+```{r}
+svmRadialGrid = expand.grid(C=c(0.5,0.75,0.9,1,1.25),
+                            sigma=c(0.01,0.02,0.03,0.04,0.05,0.1,0.12,0.15,0.2))
+set.seed(123456) 
+system.time(mod_svmRadial <- train(as.factor(Survived)~.-PassengerId-cabin_num.B-cabin_num.A-cabin_num.D
+                                   -cabin_num.E-cabin_num.T-cabin_num.G-cabin_num.F-TitleRare_Title
+                                   -cabin_num.C-Embarked.Q-cabin_num.Z,
+                                   data=allvars_trn_trn,method="svmRadial",
+                                   trControl = control,tuneGrid=svmRadialGrid))
+mod_svmRadial
+plot(mod_svmRadial)
+```
+
+##### The model looks robust when sigma is between 0.10 to 0.15 and Cost is 0.75
+##### Third iteration: choose a relatively robust model for prediction
+```{r}
+svmRadialGrid = expand.grid(C=0.75,
+                            sigma=0.15)
+set.seed(123456) 
+system.time(mod_svmRadial <- train(as.factor(Survived)~.-PassengerId-cabin_num.B-cabin_num.A-cabin_num.D
+                                   -cabin_num.E-cabin_num.T-cabin_num.G-cabin_num.F-TitleRare_Title
+                                   -cabin_num.C-Embarked.Q-cabin_num.Z,
+                                   data=allvars_trn_trn,method="svmRadial",
+                                   trControl = control,tuneGrid=svmRadialGrid))
+mod_svmRadial
+```
+
+##### Predict on the allvars_trn_val dataset and test the performance
+```{r}
+svmRadial_pred = predict(mod_svmRadial,newdata=allvars_trn_val,type="raw")
+confusionMatrix(svmRadial_pred,allvars_trn_val$Survived)
+```
+
+
+##### Build model using allvars_trn and predict on allvars_val
+```{r}
+svmRadialGrid_final = expand.grid(C=0.75,
+                                  sigma=0.15)
+set.seed(123456) 
+system.time(mod_svmRadial <- train(as.factor(Survived)~.-PassengerId-cabin_num.B-cabin_num.A-cabin_num.D
+                                   -cabin_num.E-cabin_num.T-cabin_num.G-cabin_num.F-TitleRare_Title
+                                   -cabin_num.C-Embarked.Q-cabin_num.Z,
+                                   data=allvars_trn,method="svmRadial",
+                                   trControl = control,tuneGrid=svmRadialGrid_final))
+mod_svmRadial
+svmRadial_pred_final = predict(mod_svmRadial,newdata=allvars_val,type="raw")
+svmRadial_pred_submit = data.frame(PassengerId = allvars_val$PassengerId,Survived = svmRadial_pred_final)
+svmRadial_pred_submit = svmRadial_pred_submit[order(svmRadial_pred_submit$PassengerId),]
+svmRadial_pred_submit$Survived = ifelse(svmRadial_pred_submit$Survived=="Dead",0,1)
+prop.table(table(svmRadial_pred_submit$Survived))
+```
+
+##### Save the result for submission
+```{r}
+write.csv(svmRadial_pred_submit,"pred_svmRadial.csv",row.names = F)
+```
+
+
+
+
+
+
+
