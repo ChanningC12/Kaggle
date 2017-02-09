@@ -1,7 +1,7 @@
 rm(list=ls())
 gc()
 getwd()
-setwd("../Desktop/Kaggle & Coursera/March Machine Learning Mania 2017/")
+setwd("../Desktop/Kaggle & Coursera/Kaggle Projects/March Machine Learning Mania 2017/")
 
 # Read in Team
 # Team level
