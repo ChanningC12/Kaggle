@@ -134,6 +134,84 @@ Test_Full_0209 = Test_Full_0209[,c(3,5,2,6,1,7,8:ncol(Test_Full_0209))]
 write.csv(Test_Full_0209,"Test_Full_0209.csv",row.names = F)
 
 
+############## Test set for Modeling_Tournament_Full_Add ##################
+# Read in Test Data
+Test_Full = read.csv("Raw Data/sample_submission.csv")
+Seed = read.csv("Intermediate Data/Seed.csv")
+Team_metric = read.csv("Intermediate Data/Team_metric_all_0216.csv")
+Seed_sub = Seed[Seed$Season>=2003,c(1,5:7)]
+
+Test_Full$Season = as.numeric(substr(Test_Full$id,1,4))
+Test_Full$Team1 = as.numeric(substr(Test_Full$id,6,9))
+Test_Full$Team2 = as.numeric(substr(Test_Full$id,11,14))
+Test_Full$ID_SeasonTeam1 = paste(Test_Full$Season,"_",Test_Full$Team1,sep="")
+Test_Full$ID_SeasonTeam2 = paste(Test_Full$Season,"_",Test_Full$Team2,sep="")
+
+Test_Full_1 = merge(Test_Full,Seed_sub,by.x="ID_SeasonTeam1",by.y="Team_ID",all.x=T)
+Test_Full_2 = merge(Test_Full_1,Seed_sub,by.x="ID_SeasonTeam2",by.y="Team_ID",all.x=T,
+                    suffixes = c("_Team1","_Team2"))
+# Create seed differential variable
+Test_Full_2 = mutate(Test_Full_2,Seed_Diff = Seed_num_Team2 - Seed_num_Team1)
+
+Test_Seed_1 = merge(Test_Full_2,Team_metric,by.x="ID_SeasonTeam1",by.y="ID_SeasonTeam",all.x=T)
+Test_Seed_2 = merge(Test_Seed_1,Team_metric,by.x="ID_SeasonTeam2",by.y="ID_SeasonTeam",all.x=T,
+                    suffixes = c("_Team1","_Team2"))
+
+Test_Full_0219 = mutate(Test_Seed_2,
+                        Winning_percent_diff = Winning_percent_Team1 - Winning_percent_Team2,
+                        Score_avg_diff = Score_avg_Team1 - Score_avg_Team2,
+                        Score_avg_opp_diff = Score_avg_opp_Team2 - Score_avg_opp_Team1,
+                        Score_avg_diff_diff = Score_avg_diff_Team1 - Score_avg_diff_Team2,
+                        Overtime_won_prob_diff = Overtime_won_prob_Team1 - Overtime_won_prob_Team2,
+                        Home_won_prob_diff = Home_won_prob_Team1 - Home_won_prob_Team2,
+                        Away_won_prob_diff = Away_won_prob_Team1 - Away_won_prob_Team2,
+                        Neutral_won_prob_diff = Neutral_won_prob_Team1 - Neutral_won_prob_Team2,
+                        FGP_diff = FGP_Team1 - FGP_Team2,
+                        FGP_opp_diff = FGP_opp_Team2 - FGP_opp_Team1,
+                        FGP_diff_diff = FGP_diff_Team1 - FGP_diff_Team2,
+                        FGP3_diff = FGP3_Team1 - FGP3_Team2,
+                        FGP3_opp_diff = FGP3_opp_Team2 - FGP3_opp_Team1,
+                        FGP3_diff_diff = FGP3_diff_Team1 - FGP3_diff_Team2,
+                        FTP_diff = FTP_Team1 - FTP_Team2,
+                        FTP_opp_diff = FTP_opp_Team2 - FTP_opp_Team1,
+                        FTP_diff_diff = FTP_diff_Team1 - FTP_diff_Team2,
+                        OR_diff = OR_avg_Team1 - OR_avg_Team2,
+                        OR_opp_diff = OR_avg_opp_Team2 - OR_avg_opp_Team1,
+                        DR_diff = DR_avg_Team1 - DR_avg_Team2,
+                        DR_opp_diff = DR_avg_opp_Team2 - DR_avg_opp_Team1,
+                        TR_diff = TR_avg_Team1 - TR_avg_Team2,
+                        TR_opp_diff = TR_avg_opp_Team2 - TR_avg_opp_Team1,
+                        TR_diff_diff = TR_avg_diff_Team1 - TR_avg_diff_Team2,
+                        OR_percent_diff = OR_percent_Team1 - OR_percent_Team2,
+                        AST_diff = AST_avg_Team1 - AST_avg_Team2,
+                        AST_opp_diff = AST_avg_opp_Team2 - AST_avg_opp_Team1,
+                        TO_diff = TO_avg_Team2 - TO_avg_Team1,
+                        TO_opp_diff = TO_avg_opp_Team2 - TO_avg_opp_Team1,
+                        AST_to_TO_diff = AST_to_TO_Team1 - AST_to_TO_Team2,
+                        AST_to_SCORE_diff = AST_to_SCORE_Team1 - AST_to_SCORE_Team2,
+                        STL_diff = STL_avg_Team1 - STL_avg_Team2,
+                        STL_to_TO_diff = STL_to_TO_Team1 - STL_to_TO_Team2,
+                        BLK_diff = BLK_avg_Team1 - BLK_avg_Team2,
+                        PF_diff = PF_avg_Team2 - PF_avg_Team1,
+                        PF_opp_diff = PF_avg_opp_Team1 - PF_avg_opp_Team2,
+                        EFF_diff = EFF_Team1 - EFF_Team2,
+                        Win_close_diff = Winning_percent_close_Team1 - Winning_percent_close_Team2,
+                        TSP_diff = TSP_avg_Team1 - TSP_avg_Team2,
+                        EFGP_diff = EFGP_avg_Team1 - EFGP_avg_Team2,
+                        FTA_to_FGA_diff = FTA_to_FGA_avg_Team1 - FTA_to_FGA_avg_Team2,
+                        BLK_to_PF_diff = BLK_to_PF_avg_Team1 - BLK_to_PF_avg_Team2,
+                        D_to_PF_diff = D_to_PF_avg_Team1 - D_to_PF_avg_Team2,
+                        Win_score_diff = Win_score_avg_Team1 - Win_score_avg_Team2,
+                        Game_score_diff = Game_score_avg_Team1 - Game_score_avg_Team2,
+                        Score_3_percent_diff = Score_3_percent_avg_Team1 - Score_3_percent_avg_Team2,
+                        OE_diff = OE_avg_Team1 - OE_avg_Team2,
+                        Score_to_Poss_diff = Score_to_Poss_avg_Team1 - Score_to_Poss_avg_Team2,
+                        EOP_diff = EOP_avg_Team1 - EOP_avg_Team2                        
+                        )
+
+# Create Tournament_allvars dataset
+Test_Full_0219 = Test_Full_0219[,c(3,5,2,6,1,7,8:ncol(Test_Full_0219))]
+write.csv(Test_Full_0219,"Test_Full_0219.csv",row.names = F)
 
 
 

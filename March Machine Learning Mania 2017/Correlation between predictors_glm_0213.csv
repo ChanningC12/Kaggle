@@ -1,0 +1,12 @@
+Var1,Var2,correlation,abs_cor
+Winning_percent_Team1,Games_won_Team1,0.933482073,0.933482073
+FGA3_avg_Team1,FGM3_avg_Team1,0.930504917,0.930504917
+OR_percent_Team1,OR_avg_Team1,0.872733966,0.872733966
+AST_to_SCORE_Team1,AST_avg_Team1,0.836068207,0.836068207
+Away_won_prob_Team1,Winning_percent_Team1,0.830688985,0.830688985
+Away_won_prob_Team1,Games_won_Team1,0.748719373,0.748719373
+Home_won_prob_Team1,Winning_percent_Team1,0.710690439,0.710690439
+Games_won_Team1,Seed_num_Team1,-0.673836092,0.673836092
+Winning_percent_Team1,Seed_num_Team1,-0.656955153,0.656955153
+Home_won_prob_Team1,Games_won_Team1,0.639905747,0.639905747
+Score_avg_opp_Team2,Score_avg_Team2,0.626763975,0.626763975

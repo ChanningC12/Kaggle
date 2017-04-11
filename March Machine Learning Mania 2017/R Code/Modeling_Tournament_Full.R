@@ -10,9 +10,9 @@ library(caret)
 library(ROCR)
 
 # Read in seed,TCR,TDR datasets
-Seed = read.csv("Seed.csv")
-TDR = read.csv("TourneyDetailedResults.csv")
-Team_metric = read.csv("Team_metric_all.csv")
+Seed = read.csv("Intermediate Data/Seed.csv")
+TDR = read.csv("Raw Data/TourneyDetailedResults.csv")
+Team_metric = read.csv("Intermediate Data/Team_metric_all.csv")
 
 # Only use data points after 2003, this allows to use seed_pre
 Seed_sub = Seed[Seed$Season>=2003,c(1,5:7)]
@@ -101,6 +101,7 @@ Tournament_modeling = mutate(Tournament_allvars,
                             
 # Check the missing values
 colSums(is.na(Tournament_modeling))
+write.csv(Tournament_modeling,"Intermediate Data/Modeling_tournament_0209.csv",row.names = F)
 
 ################### Univariate Analysis #####################
 Tournament_modeling$Result_num = ifelse(Tournament_modeling$Result=="Win",1,0)
@@ -115,7 +116,7 @@ cor_summary$abs_cor = abs(cor_summary$correlation)
 # sort by absolute correlation
 cor_summary = cor_summary[order(cor_summary$abs_cor,decreasing = T),]
 cor_summary$Var2 = "Result_num"
-write.csv(cor_summary,"Univariate_0209.csv")
+write.csv(cor_summary,"Univariate_0209.csv",row.names = F)
 
 ################## Correlations between predictors ####################
 Tournament_modeling$Result_num = ifelse(Tournament_modeling$Result=="Win",1,0)
@@ -129,7 +130,7 @@ cor_pred_summary = cor_pred_summary[cor_pred_summary$Var1!=cor_pred_summary$Var2
 cor_pred_summary$abs_cor = abs(cor_pred_summary$correlation)
 # sort by absolute correlation
 cor_pred_summary = cor_pred_summary[order(cor_pred_summary$abs_cor,decreasing = T),]
-write.csv(cor_pred_summary,"Univariate_Predictor_0209.csv")
+write.csv(cor_pred_summary,"Univariate_Predictor_0209.csv",row.names = F)
 
 ################### Modeling #########################
 table(Tournament_modeling$Season)

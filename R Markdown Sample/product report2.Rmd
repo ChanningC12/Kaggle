@@ -1,0 +1,367 @@
+---
+title: "<center>Product Performance Dashboard</center>"
+author: "<center><h3>Zoro Product & Analytics</h3></center>"
+date: "<center>December 2016</center><br>"
+output: html_document
+knit: (function(inputFile, encoding) { 
+      out_dir <- 'html';
+      rmarkdown::render(inputFile,
+                        encoding=encoding, 
+                        output_file=file.path(dirname(inputFile), out_dir, 'Product Performance Dashboard December 2016.html')) })
+---
+
+```{r setup, include=FALSE}
+
+knitr::opts_chunk$set(echo = FALSE,message = FALSE,out.width='100%')
+options(warn=-1)
+options(digits = 2)
+library(ggplot2)
+library(plotly)
+library(zoo)
+library(scales)
+library(lubridate)
+
+# working directory
+setwd("C:/Users/xsxj045/Documents/Reports/SWS & Zoro-only SKUs Tracker/v2 Sep 2016/scripts/Rmd")
+
+# source code
+# source('../code.r',local='TRUE')
+
+# load data
+load('../history_summ.rdata')
+
+```
+
+
+```{r prepare columns, include=FALSE}
+# period
+history_summ$period <- as.character(as.yearmon(history_summ$year + (history_summ$month - 1)/12))
+history_summ$period <- factor(history_summ$period, levels = unique(history_summ$period))
+
+# % Skus Sold
+history_summ$percSkusSold <- history_summ$skus_sold / history_summ$skus
+
+# Sales per sku per biz day
+history_summ$salesPerSkuDay <- history_summ$sales/history_summ$skus/history_summ$busdays
+
+# GP Rate
+history_summ$gpRate <- history_summ$gp/history_summ$sales
+
+# Conversion Rate
+history_summ$convRate <- history_summ$web_orders/history_summ$views
+
+# Average Sold Item Price
+history_summ$avgPrice <- history_summ$sales/history_summ$qty
+
+# Average Qty per Order
+history_summ$avgQty <- history_summ$qty/history_summ$orders
+
+# Average Order Value
+history_summ$AOV <- history_summ$sales/history_summ$orders
+
+# Percent of Promo Sales
+history_summ$percPromo <- history_summ$promo_sales/history_summ$sales
+
+```
+
+```{r prepare parameters, include=FALSE}
+
+today <- date(now())
+
+# month year
+mon <- month(today - day(today))
+yyyy <- year(today - day(today))
+
+# month year 3 months ago
+mon_3prev <- today - day(today) 
+
+```
+
+```{r save, include=FALSE}
+# history data
+fileName = paste0('data_',yyyy,'_',mon,'.rdata')
+filePath = paste0('data/',fileName)
+save.image(filePath)
+
+```
+
+-----
+
+## Instructions
+1. **Hover** on the graphs to see the numbers by month
+2. **Click the legends** to show/hide a series
+3. **Drag a rectangle area** in graph to zoom in
+4. **Double click** the graph to zoom out
+
+### Notes
+1. `Monthly Sales` for December 2016 was under reported for ~$1M due to database issues. 
+2. `Conversion Rate` of July 2016 might not be accurate due to some tagging issues in Google Analytics.
+3. Starting from Sep 2016, data for `SWS` and `Zoro-only` skus has been pulled using updated queries. 
+
+<hr style="height:1px;color:grey;background-color: grey;">
+<center> <h2>Monthly Sku Counts</h2> </center>
+
+<br>
+
+* Monthly Sku Count for `Drop-ship-LTL` items has been growing **`r sprintf('%.1f%%',((subset(history_summ,grp=='Drop-ship-LTL' & year==yyyy & month==mon)$skus / subset(history_summ,grp=='Drop-ship-LTL' & year==yyyy & month==mon-3)$skus)^(1/3) - 1)*100)`** MOM over the last three months
+* Monthly Sku Count for `Drop-ship-parcel` items has been growing **`r sprintf('%.1f%%',((subset(history_summ,grp=='Drop-ship-parcel' & year==yyyy & month==mon)$skus / subset(history_summ,grp=='Drop-ship-parcel' & year==yyyy & month==mon-3)$skus)^(1/3) - 1)*100)`** MOM over the last three months
+* Monthly Sku Count for `Grainger-stocked` items has been growing **`r sprintf('%.1f%%',((subset(history_summ,grp=='Grainger-stocked' & year==yyyy & month==mon)$skus / subset(history_summ,grp=='Grainger-stocked' & year==yyyy & month==mon-3)$skus)^(1/3) - 1)*100)`** MOM over the last three months
+* Monthly Sku Count for `SWS` items has been growing **`r sprintf('%.1f%%',((subset(history_summ,grp=='SWS' & year==yyyy & month==mon)$skus / subset(history_summ,grp=='SWS' & year==yyyy & month==mon-3)$skus)^(1/3) - 1)*100)`** MOM over the last three months
+* Monthly Sku Count for `Zoro-only` items has been growing **`r sprintf('%.1f%%',((subset(history_summ,grp=='Zoro-only' & year==yyyy & month==mon)$skus / subset(history_summ,grp=='Zoro-only' & year==yyyy & month==mon-3)$skus)^(1/3) - 1)*100)`** MOM over the last three months
+
+```{r Sku Counts}
+plot_ly(
+    data = history_summ, x = ~period, y = ~skus, 
+    type = 'scatter', mode = 'lines+markers', color = ~grp,
+    line=list(width=4), 
+    marker=list(size=10)
+) %>% layout(
+    xaxis = list(title=''),
+    yaxis = list(title='<b>Monthly Sku Count</b>',hoverformat=',.3s',tickformat=',.3s'),
+    hovermode = 'x',
+    legend = list(x = 1, y = 0.5)
+)
+    
+# plot_ly(data = history_summ, x = ~period, y = ~skus,
+#         type = 'scatter', mode = 'lines+markers', color = ~grp,
+#         line=list(width=4),
+#         marker=list(size=10,color='white',line=list(width=4,colors='Set1'))
+# )
+
+```
+
+<hr style="height:1px;color:grey;background-color: grey;">
+
+<center> <h2>Percentage of Skus Sold</h2> </center>
+
+<br>
+
+* Percentage of Skus Sold for `Drop-ship-LTL` items has been growing **`r sprintf('%.1f%%',((subset(history_summ,grp=='Drop-ship-LTL' & year==yyyy & month==mon)$percSkusSold / subset(history_summ,grp=='Drop-ship-LTL' & year==yyyy & month==mon-3)$percSkusSold)^(1/3) - 1)*100)`** MOM over the last three months
+* Percentage of Skus Sold for `Drop-ship-parcel` items has been growing **`r sprintf('%.1f%%',((subset(history_summ,grp=='Drop-ship-parcel' & year==yyyy & month==mon)$percSkusSold / subset(history_summ,grp=='Drop-ship-parcel' & year==yyyy & month==mon-3)$percSkusSold)^(1/3) - 1)*100)`** MOM over the last three months
+* Percentage of Skus Sold for `Grainger-stocked` items has been growing **`r sprintf('%.1f%%',((subset(history_summ,grp=='Grainger-stocked' & year==yyyy & month==mon)$percSkusSold / subset(history_summ,grp=='Grainger-stocked' & year==yyyy & month==mon-3)$percSkusSold)^(1/3) - 1)*100)`** MOM over the last three months
+* Percentage of Skus Sold for `SWS` items has been growing **`r sprintf('%.1f%%',((subset(history_summ,grp=='SWS' & year==yyyy & month==mon)$percSkusSold / subset(history_summ,grp=='SWS' & year==yyyy & month==mon-3)$percSkusSold)^(1/3) - 1)*100)`** MOM over the last three months
+* Percentage of Skus Sold for `Zoro-only` items has been growing **`r sprintf('%.1f%%',((subset(history_summ,grp=='Zoro-only' & year==yyyy & month==mon)$percSkusSold / subset(history_summ,grp=='Zoro-only' & year==yyyy & month==mon-3)$percSkusSold)^(1/3) - 1)*100)`** MOM over the last three months
+
+```{r % Skus Sold}
+plot_ly(
+    data = history_summ, x = ~period, y = ~percSkusSold, 
+    type = 'scatter', mode = 'lines+markers', color = ~grp,
+    line=list(width=4), 
+    marker=list(size=10)
+) %>% layout(
+    xaxis = list(title=''),
+    yaxis = list(title='<b>Percentage of Skus Sold</b>',hoverformat='.2%',tickformat = '%'),
+    hovermode = 'x',
+    legend = list(x = 1, y = 0.5)
+)
+
+```
+
+<hr style="height:1px;color:grey;background-color: grey;">
+<center> <h2>Monthly Sales</h2> </center>
+
+<br>
+
+* Monthly Sales for `Drop-ship-LTL` items has been growing **`r sprintf('%.1f%%',((subset(history_summ,grp=='Drop-ship-LTL' & year==yyyy & month==mon)$sales / subset(history_summ,grp=='Drop-ship-LTL' & year==yyyy & month==mon-3)$sales)^(1/3) - 1)*100)`** MOM over the last three months
+* Monthly Sales for `Drop-ship-parcel` items has been growing **`r sprintf('%.1f%%',((subset(history_summ,grp=='Drop-ship-parcel' & year==yyyy & month==mon)$sales / subset(history_summ,grp=='Drop-ship-parcel' & year==yyyy & month==mon-3)$sales)^(1/3) - 1)*100)`** MOM over the last three months
+* Monthly Sales for `Grainger-stocked` items has been growing **`r sprintf('%.1f%%',((subset(history_summ,grp=='Grainger-stocked' & year==yyyy & month==mon)$sales / subset(history_summ,grp=='Grainger-stocked' & year==yyyy & month==mon-3)$sales)^(1/3) - 1)*100)`** MOM over the last three months
+* Monthly Sales for `SWS` items has been growing **`r sprintf('%.1f%%',((subset(history_summ,grp=='SWS' & year==yyyy & month==mon)$sales / subset(history_summ,grp=='SWS' & year==yyyy & month==mon-3)$sales)^(1/3) - 1)*100)`** MOM over the last three months
+* Monthly Sales for `Zoro-only` items has been growing **`r sprintf('%.1f%%',((subset(history_summ,grp=='Zoro-only' & year==yyyy & month==mon)$sales / subset(history_summ,grp=='Zoro-only' & year==yyyy & month==mon-3)$sales)^(1/3) - 1)*100)`** MOM over the last three months
+
+```{r Monthly Sales}
+plot_ly(
+    data = history_summ, x = ~period, y = ~sales, 
+    type = 'scatter', mode = 'lines+markers', color = ~grp,
+    line=list(width=4), 
+    marker=list(size=10)
+) %>% layout(
+    xaxis = list(title=''),
+    yaxis = list(title='<b>Monthly Sales</b>',hoverformat='$,.3s',tickformat='$s'),
+    hovermode = 'x',
+    legend = list(x = 1, y = 0.5)
+)
+
+```
+
+<hr style="height:1px;color:grey;background-color: grey;">
+
+<center> <h2>Sales per Sku per Biz Day</h2> </center>
+
+<br>
+
+* Sales per Sku per Biz Day for `Drop-ship-LTL` items has been growing **`r sprintf('%.1f%%',((subset(history_summ,grp=='Drop-ship-LTL' & year==yyyy & month==mon)$salesPerSkuDay / subset(history_summ,grp=='Drop-ship-LTL' & year==yyyy & month==mon-3)$salesPerSkuDay)^(1/3) - 1)*100)`** MOM over the last three months
+* Sales per Sku per Biz Day for `Drop-ship-parcel` items has been growing **`r sprintf('%.1f%%',((subset(history_summ,grp=='Drop-ship-parcel' & year==yyyy & month==mon)$salesPerSkuDay / subset(history_summ,grp=='Drop-ship-parcel' & year==yyyy & month==mon-3)$salesPerSkuDay)^(1/3) - 1)*100)`** MOM over the last three months
+* Sales per Sku per Biz Day for `Grainger-stocked` items has been growing **`r sprintf('%.1f%%',((subset(history_summ,grp=='Grainger-stocked' & year==yyyy & month==mon)$salesPerSkuDay / subset(history_summ,grp=='Grainger-stocked' & year==yyyy & month==mon-3)$salesPerSkuDay)^(1/3) - 1)*100)`** MOM over the last three months
+* Sales per Sku per Biz Day for `SWS` items has been growing **`r sprintf('%.1f%%',((subset(history_summ,grp=='SWS' & year==yyyy & month==mon)$salesPerSkuDay / subset(history_summ,grp=='SWS' & year==yyyy & month==mon-3)$salesPerSkuDay)^(1/3) - 1)*100)`** MOM over the last three months
+* Sales per Sku per Biz Day for `Zoro-only` items has been growing **`r sprintf('%.1f%%',((subset(history_summ,grp=='Zoro-only' & year==yyyy & month==mon)$salesPerSkuDay / subset(history_summ,grp=='Zoro-only' & year==yyyy & month==mon-3)$salesPerSkuDay)^(1/3) - 1)*100)`** MOM over the last three months
+
+```{r Sales per Sku per Biz Day}
+plot_ly(
+    data = history_summ, x = ~period, y = ~salesPerSkuDay, 
+    type = 'scatter', mode = 'lines+markers', color = ~grp,
+    line=list(width=4), 
+    marker=list(size=10)
+) %>% layout(
+    xaxis = list(title=''),
+    yaxis = list(title='<b>Sales per Sku per Biz Day</b>',hoverformat='$,.2r',tickformat='$.2r'),
+    hovermode = 'x',
+    legend = list(x = 1, y = 0.5)
+)
+
+```
+
+<hr style="height:1px;color:grey;background-color: grey;">
+<center> <h2>GP Rate</h2> </center>
+
+<br>
+
+* GP Rate for `Drop-ship-LTL` items has been growing **`r sprintf('%.1f%%',((subset(history_summ,grp=='Drop-ship-LTL' & year==yyyy & month==mon)$gpRate / subset(history_summ,grp=='Drop-ship-LTL' & year==yyyy & month==mon-3)$gpRate)^(1/3) - 1)*100)`** MOM over the last three months
+* GP Rate for `Drop-ship-parcel` items has been growing **`r sprintf('%.1f%%',((subset(history_summ,grp=='Drop-ship-parcel' & year==yyyy & month==mon)$gpRate / subset(history_summ,grp=='Drop-ship-parcel' & year==yyyy & month==mon-3)$gpRate)^(1/3) - 1)*100)`** MOM over the last three months
+* GP Rate for `Grainger-stocked` items has been growing **`r sprintf('%.1f%%',((subset(history_summ,grp=='Grainger-stocked' & year==yyyy & month==mon)$gpRate / subset(history_summ,grp=='Grainger-stocked' & year==yyyy & month==mon-3)$gpRate)^(1/3) - 1)*100)`** MOM over the last three months
+* GP Rate for `SWS` items has been growing **`r sprintf('%.1f%%',((subset(history_summ,grp=='SWS' & year==yyyy & month==mon)$gpRate / subset(history_summ,grp=='SWS' & year==yyyy & month==mon-3)$gpRate)^(1/3) - 1)*100)`** MOM over the last three months
+* GP Rate for `Zoro-only` items has been growing **`r sprintf('%.1f%%',((subset(history_summ,grp=='Zoro-only' & year==yyyy & month==mon)$gpRate / subset(history_summ,grp=='Zoro-only' & year==yyyy & month==mon-3)$gpRate)^(1/3) - 1)*100)`** MOM over the last three months
+
+```{r GP Rate}
+plot_ly(
+    data = history_summ, x = ~period, y = ~gpRate, 
+    type = 'scatter', mode = 'lines+markers', color = ~grp,
+    line=list(width=4), 
+    marker=list(size=10)
+) %>% layout(
+    xaxis = list(title=''),
+    yaxis = list(title='<b>GP Rate</b>',hoverformat='.1%',tickformat='%'),
+    hovermode = 'x',
+    legend = list(x = 1, y = 0.5)
+)
+
+```
+
+<hr style="height:1px;color:grey;background-color: grey;">
+<center> <h2>Conversion Rate</h2> </center>
+
+<br>
+
+* Conversion Rate for `Drop-ship-LTL` items has been growing **`r sprintf('%.1f%%',((subset(history_summ,grp=='Drop-ship-LTL' & year==yyyy & month==mon)$convRate / subset(history_summ,grp=='Drop-ship-LTL' & year==yyyy & month==mon-3)$convRate)^(1/3) - 1)*100)`** MOM over the last three months
+* Conversion Rate for `Drop-ship-parcel` items has been growing **`r sprintf('%.1f%%',((subset(history_summ,grp=='Drop-ship-parcel' & year==yyyy & month==mon)$convRate / subset(history_summ,grp=='Drop-ship-parcel' & year==yyyy & month==mon-3)$convRate)^(1/3) - 1)*100)`** MOM over the last three months
+* Conversion Rate for `Grainger-stocked` items has been growing **`r sprintf('%.1f%%',((subset(history_summ,grp=='Grainger-stocked' & year==yyyy & month==mon)$convRate / subset(history_summ,grp=='Grainger-stocked' & year==yyyy & month==mon-3)$convRate)^(1/3) - 1)*100)`** MOM over the last three months
+* Conversion Rate for `SWS` items has been growing **`r sprintf('%.1f%%',((subset(history_summ,grp=='SWS' & year==yyyy & month==mon)$convRate / subset(history_summ,grp=='SWS' & year==yyyy & month==mon-3)$convRate)^(1/3) - 1)*100)`** MOM over the last three months
+* Conversion Rate for `Zoro-only` items has been growing **`r sprintf('%.1f%%',((subset(history_summ,grp=='Zoro-only' & year==yyyy & month==mon)$convRate / subset(history_summ,grp=='Zoro-only' & year==yyyy & month==mon-3)$convRate)^(1/3) - 1)*100)`** MOM over the last three months
+
+```{r Conversion Rate}
+plot_ly(
+    data = history_summ, x = ~period, y = ~convRate, 
+    type = 'scatter', mode = 'lines+markers', color = ~grp,
+    line=list(width=4), 
+    marker=list(size=10)
+) %>% layout(
+    xaxis = list(title=''),
+    yaxis = list(title='<b>Conversion Rate</b>',hoverformat='.2%',tickformat='.1%'),
+    hovermode = 'x',
+    legend = list(x = 1, y = 0.5)
+)
+
+```
+
+<hr style="height:1px;color:grey;background-color: grey;">
+<center> <h2>Average Sold Item Price</h2> </center>
+
+<br>
+
+* Average Sold Item Price for `Drop-ship-LTL` items has been growing **`r sprintf('%.1f%%',((subset(history_summ,grp=='Drop-ship-LTL' & year==yyyy & month==mon)$avgPrice / subset(history_summ,grp=='Drop-ship-LTL' & year==yyyy & month==mon-3)$avgPrice)^(1/3) - 1)*100)`** MOM over the last three months
+* Average Sold Item Price for `Drop-ship-parcel` items has been growing **`r sprintf('%.1f%%',((subset(history_summ,grp=='Drop-ship-parcel' & year==yyyy & month==mon)$avgPrice / subset(history_summ,grp=='Drop-ship-parcel' & year==yyyy & month==mon-3)$avgPrice)^(1/3) - 1)*100)`** MOM over the last three months
+* Average Sold Item Price for `Grainger-stocked` items has been growing **`r sprintf('%.1f%%',((subset(history_summ,grp=='Grainger-stocked' & year==yyyy & month==mon)$avgPrice / subset(history_summ,grp=='Grainger-stocked' & year==yyyy & month==mon-3)$avgPrice)^(1/3) - 1)*100)`** MOM over the last three months
+* Average Sold Item Price for `SWS` items has been growing **`r sprintf('%.1f%%',((subset(history_summ,grp=='SWS' & year==yyyy & month==mon)$avgPrice / subset(history_summ,grp=='SWS' & year==yyyy & month==mon-3)$avgPrice)^(1/3) - 1)*100)`** MOM over the last three months
+* Average Sold Item Price for `Zoro-only` items has been growing **`r sprintf('%.1f%%',((subset(history_summ,grp=='Zoro-only' & year==yyyy & month==mon)$avgPrice / subset(history_summ,grp=='Zoro-only' & year==yyyy & month==mon-3)$avgPrice)^(1/3) - 1)*100)`** MOM over the last three months
+
+```{r Average Sold Item Price}
+plot_ly(
+    data = history_summ, x = ~period, y = ~avgPrice, 
+    type = 'scatter', mode = 'lines+markers', color = ~grp,
+    line=list(width=4), 
+    marker=list(size=10)
+) %>% layout(
+    xaxis = list(title=''),
+    yaxis = list(title='<b>Average Sold Item Price</b>',hoverformat='$,.3r',tickformat='$,'),
+    hovermode = 'x',
+    legend = list(x = 1, y = 0.5)
+)
+
+```
+
+<hr style="height:1px;color:grey;background-color: grey;">
+<center> <h2>Average Item Quantity per Order</h2> </center>
+
+<br>
+
+* Average Item Quantity per Order for `Drop-ship-LTL` items has been growing **`r sprintf('%.1f%%',((subset(history_summ,grp=='Drop-ship-LTL' & year==yyyy & month==mon)$avgQty / subset(history_summ,grp=='Drop-ship-LTL' & year==yyyy & month==mon-3)$avgQty)^(1/3) - 1)*100)`** MOM over the last three months
+* Average Item Quantity per Order for `Drop-ship-parcel` items has been growing **`r sprintf('%.1f%%',((subset(history_summ,grp=='Drop-ship-parcel' & year==yyyy & month==mon)$avgQty / subset(history_summ,grp=='Drop-ship-parcel' & year==yyyy & month==mon-3)$avgQty)^(1/3) - 1)*100)`** MOM over the last three months
+* Average Item Quantity per Order for `Grainger-stocked` items has been growing **`r sprintf('%.1f%%',((subset(history_summ,grp=='Grainger-stocked' & year==yyyy & month==mon)$avgQty / subset(history_summ,grp=='Grainger-stocked' & year==yyyy & month==mon-3)$avgQty)^(1/3) - 1)*100)`** MOM over the last three months
+* Average Item Quantity per Order for `SWS` items has been growing **`r sprintf('%.1f%%',((subset(history_summ,grp=='SWS' & year==yyyy & month==mon)$avgQty / subset(history_summ,grp=='SWS' & year==yyyy & month==mon-3)$avgQty)^(1/3) - 1)*100)`** MOM over the last three months
+* Average Item Quantity per Order for `Zoro-only` items has been growing **`r sprintf('%.1f%%',((subset(history_summ,grp=='Zoro-only' & year==yyyy & month==mon)$avgQty / subset(history_summ,grp=='Zoro-only' & year==yyyy & month==mon-3)$avgQty)^(1/3) - 1)*100)`** MOM over the last three months
+
+```{r Average Item Quantity per Order}
+plot_ly(
+    data = history_summ, x = ~period, y = ~avgQty, 
+    type = 'scatter', mode = 'lines+markers', color = ~grp,
+    line=list(width=4), 
+    marker=list(size=10)
+) %>% layout(
+    xaxis = list(title=''),
+    yaxis = list(title='<b>Average Item Quantity per Order</b>',hoverformat=',.2r',tickformat=''),
+    hovermode = 'x',
+    legend = list(x = 1, y = 0.5)
+)
+
+```
+
+<hr style="height:1px;color:grey;background-color: grey;">
+<center> <h2>Average Order Value</h2> </center>
+
+<br>
+
+* Average Order Value for `Drop-ship-LTL` items has been growing **`r sprintf('%.1f%%',((subset(history_summ,grp=='Drop-ship-LTL' & year==yyyy & month==mon)$AOV / subset(history_summ,grp=='Drop-ship-LTL' & year==yyyy & month==mon-3)$AOV)^(1/3) - 1)*100)`** MOM over the last three months
+* Average Order Value for `Drop-ship-parcel` items has been growing **`r sprintf('%.1f%%',((subset(history_summ,grp=='Drop-ship-parcel' & year==yyyy & month==mon)$AOV / subset(history_summ,grp=='Drop-ship-parcel' & year==yyyy & month==mon-3)$AOV)^(1/3) - 1)*100)`** MOM over the last three months
+* Average Order Value for `Grainger-stocked` items has been growing **`r sprintf('%.1f%%',((subset(history_summ,grp=='Grainger-stocked' & year==yyyy & month==mon)$AOV / subset(history_summ,grp=='Grainger-stocked' & year==yyyy & month==mon-3)$AOV)^(1/3) - 1)*100)`** MOM over the last three months
+* Average Order Value for `SWS` items has been growing **`r sprintf('%.1f%%',((subset(history_summ,grp=='SWS' & year==yyyy & month==mon)$AOV / subset(history_summ,grp=='SWS' & year==yyyy & month==mon-3)$AOV)^(1/3) - 1)*100)`** MOM over the last three months
+* Average Order Value for `Zoro-only` items has been growing **`r sprintf('%.1f%%',((subset(history_summ,grp=='Zoro-only' & year==yyyy & month==mon)$AOV / subset(history_summ,grp=='Zoro-only' & year==yyyy & month==mon-3)$AOV)^(1/3) - 1)*100)`** MOM over the last three months
+
+```{r Average Order Value}
+plot_ly(
+    data = history_summ, x = ~period, y = ~AOV, 
+    type = 'scatter', mode = 'lines+markers', color = ~grp,
+    line=list(width=4), 
+    marker=list(size=10)
+) %>% layout(
+    xaxis = list(title=''),
+    yaxis = list(title='<b>Average Order Value</b>',hoverformat='$,f',tickformat='$,'),
+    hovermode = 'x',
+    legend = list(x = 1, y = 0.5)
+)
+
+```
+
+<hr style="height:1px;color:grey;background-color: grey;">
+<center> <h2>Percentage of Promo Sales</h2> </center>
+
+<br>
+
+* Percentage of Promo Sales for `Drop-ship-LTL` items has been growing **`r sprintf('%.1f%%',((subset(history_summ,grp=='Drop-ship-LTL' & year==yyyy & month==mon)$percPromo / subset(history_summ,grp=='Drop-ship-LTL' & year==yyyy & month==mon-3)$percPromo)^(1/3) - 1)*100)`** MOM over the last three months
+* Percentage of Promo Sales for `Drop-ship-parcel` items has been growing **`r sprintf('%.1f%%',((subset(history_summ,grp=='Drop-ship-parcel' & year==yyyy & month==mon)$percPromo / subset(history_summ,grp=='Drop-ship-parcel' & year==yyyy & month==mon-3)$percPromo)^(1/3) - 1)*100)`** MOM over the last three months
+* Percentage of Promo Sales for `Grainger-stocked` items has been growing **`r sprintf('%.1f%%',((subset(history_summ,grp=='Grainger-stocked' & year==yyyy & month==mon)$percPromo / subset(history_summ,grp=='Grainger-stocked' & year==yyyy & month==mon-3)$percPromo)^(1/3) - 1)*100)`** MOM over the last three months
+* Percentage of Promo Sales for `SWS` items has been growing **`r sprintf('%.1f%%',((subset(history_summ,grp=='SWS' & year==yyyy & month==mon)$percPromo / subset(history_summ,grp=='SWS' & year==yyyy & month==mon-3)$percPromo)^(1/3) - 1)*100)`** MOM over the last three months
+* Percentage of Promo Sales for `Zoro-only` items has been growing **`r sprintf('%.1f%%',((subset(history_summ,grp=='Zoro-only' & year==yyyy & month==mon)$percPromo / subset(history_summ,grp=='Zoro-only' & year==yyyy & month==mon-3)$percPromo)^(1/3) - 1)*100)`** MOM over the last three months
+
+```{r Percentage of Promo Sales}
+plot_ly(
+    data = history_summ, x = ~period, y = ~percPromo, 
+    type = 'scatter', mode = 'lines+markers', color = ~grp,
+    line=list(width=4), 
+    marker=list(size=10)
+) %>% layout(
+    xaxis = list(title=''),
+    yaxis = list(title='<b>Percentage of Promo Sales</b>',hoverformat='.1%',tickformat='%'),
+    hovermode = 'x',
+    legend = list(x = 1, y = 0.5)
+)
+
+```
