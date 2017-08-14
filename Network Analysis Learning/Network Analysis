@@ -1,0 +1,45 @@
+Network Analysis
+http://kateto.net/networks-r-igraph
+https://sna.stanford.edu/lab.php?l=4
+
+Centrality: who is the most important or central person in this network?
+
+Network metric:
+	- weighted degress
+	- clustering
+	- eigencentrality
+	- Betweenesscentrality
+
+cluster, measure of connectness that is not redundant
+
+
+Data Preparation
+SAS
+1. hcp_net: for each doctor, who are their patients, and what are their patients' doctors
+IMS_ID, cluster, PATIENT_ID, imsid
+
+2. hcp_degree: for each HCP, what's their degree? Degree is defined as how many shared patients they have with other HCP
+
+3. hcp_network (edgelist): How many shared patients are existed between each pair of HCPs?
+
+4. nodelist: HCP level information including how many shared patients they have, demographic information
+
+R (create network variables)
+package: igraph
+variables:
+- Id
+- betweeness
+- closeness
+- eigen_centrality
+
+Steps:
+1. create graph object
+graph_from_data_frame
+2. calculate centrality measures
+- Indegree centrality: how many people direct social
+- Outdegree centrality: how many people the actor directs social talk to
+- Closeness: mean geodesic distance between a given node and all other nodes with paths from the given node to the other node. This is close to being the mean shortest path, but geodesic distances give higher values for more central nodes
+- Betweeness centrality: measures the number of shortest paths going through a specific vertex
+- Eigenvector centrality: gives greater weight to a node the more it is connected to other highly connected nodes. A node connected to five high-scoring nodes will have higher eigenvector centrality than a node conected to five low-scoring nodes. Thus, it is often interpreted as measuring a node's network importance
+
+
